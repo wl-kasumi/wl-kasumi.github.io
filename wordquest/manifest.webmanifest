@@ -1,0 +1,15 @@
+{
+  "name": "WordQuest",
+  "short_name": "WordQuest",
+  "description": "まほう学校のスペルクエスト",
+  "lang": "ja",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#120826",
+  "theme_color": "#170b33",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
