@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#7FB069" />
+    <!-- iPad / iPhone: ホーム画面から全画面で開く -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="漢字シート" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="icon.svg" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <title>漢字れんしゅうシート</title>
+    <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
+    <style>
+      :root{
+        --green:#7FB069; --deep:#4E7A3A; --pale:#E4F0DC; --cream:#FFFBF2;
+        --coral:#EF6461; --red:#D9534F; --ink:#33302A; --dim:#7A756A;
+      }
+      *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+      html,body{margin:0; padding:0;}
+      body{
+        background:var(--cream); color:var(--ink);
+        font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic",system-ui,sans-serif;
+        -webkit-print-color-adjust:exact; print-color-adjust:exact;
+      }
+      .app{max-width:880px; margin:0 auto; padding:14px 14px 8px;}
+
+      /* ---------- header ---------- */
+      .topbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+      .topbar img{width:40px; height:40px;}
+      .topbar h1{margin:0; font-size:clamp(20px,3.4vw,27px); color:var(--deep); letter-spacing:.02em;}
+      .chip{display:inline-flex; align-items:center; background:var(--pale); color:var(--deep);
+        font-weight:700; font-size:15px; padding:6px 14px; border-radius:999px;}
+      .kuro{font-size:12px; color:var(--dim);}
+      .kuro.ok{color:var(--deep); font-weight:700;}
+      .kuro.err{color:var(--red); font-weight:700;}
+      .spacer{flex:1;}
+
+      .hint{margin:8px 2px 0; font-size:13px; color:var(--dim);}
+
+      /* ---------- buttons ---------- */
+      .btn{font:inherit; font-weight:700; border-radius:999px; border:2px solid var(--green);
+        background:#fff; color:var(--deep); padding:9px 18px; cursor:pointer; font-size:15px;}
+      .btn.primary{background:var(--green); color:#fff;}
+      .btn.soft{background:var(--pale); border-color:var(--pale);}
+      .btn:active{transform:scale(.97);}
+      .btn.armed{background:var(--red); border-color:var(--red); color:#fff;}
+      .btn.danger{background:#fff; border-color:var(--red); color:var(--red);}
+      .btn.danger.armed{background:var(--red); color:#fff;}
+      .btn.big{font-size:18px; padding:13px 26px;}
+
+      /* ---------- input row ---------- */
+      .input-row{display:flex; gap:8px; margin-top:12px;}
+      .input-row input{flex:1; min-width:0; font:inherit; font-size:17px; padding:12px 16px;
+        border:2px solid #D8D2C4; border-radius:16px; background:#fff; color:var(--ink);}
+      .input-row input:focus{outline:none; border-color:var(--green);}
+      .msg{min-height:22px; margin-top:8px; font-size:14px; color:var(--red); font-weight:700;}
+
+      /* ---------- cards ---------- */
+      #cards{display:flex; flex-direction:column; gap:12px; margin-top:4px;}
+      .card{background:#fff; border-radius:24px; padding:14px 16px; box-shadow:0 2px 8px rgba(78,122,58,.13);}
+      .card-head{display:flex; align-items:center; gap:10px;}
+      .num{width:32px; height:32px; flex:none; border-radius:50%; background:var(--green); color:#fff;
+        display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px;}
+      .kchip{background:var(--pale); color:var(--deep); font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px;}
+      .warn{display:none; color:#B8860B; font-size:13px; font-weight:700;}
+      .warn.show{display:inline;}
+      .del{margin-left:auto; background:none; border:none; font-size:19px; cursor:pointer; padding:4px 6px;}
+      .card label{display:block; margin-top:10px; font-size:12px; color:var(--dim); font-weight:700;}
+      .card input{width:100%; font:inherit; font-size:17px; padding:10px 14px; margin-top:4px;
+        border:2px solid #E3DECF; border-radius:16px; background:#fff; color:var(--ink);}
+      .card input:focus{outline:none; border-color:var(--green);}
+      .reconv{margin-top:10px; font-size:14px; padding:8px 16px;}
+      .empty{color:var(--dim); font-size:15px; padding:8px 2px;}
+
+      .actions{display:flex; gap:12px; margin:18px 0 4px; flex-wrap:wrap;}
+      .preview-title{font-size:17px; color:var(--deep); margin:18px 2px 8px;}
+
+      /* ---------- sets modal ---------- */
+      .modal-back{position:fixed; inset:0; background:rgba(51,48,42,.45); display:none;
+        align-items:center; justify-content:center; z-index:50; padding:18px;}
+      .modal-back.open{display:flex;}
+      .modal{background:#fff; border-radius:24px; padding:20px; width:min(480px,100%); max-height:82vh; overflow:auto;}
+      .modal h3{margin:0 0 12px; font-size:18px; color:var(--deep);}
+      .modal .btn{width:100%; margin-bottom:8px;}
+      .set-row{border-top:1.5px solid #EEE9DB; padding:10px 2px;}
+      .set-row .nm{font-weight:700; font-size:15px;}
+      .set-row .ops{display:flex; gap:8px; margin-top:6px;}
+      .set-row .ops .btn{width:auto; padding:6px 14px; font-size:13px; margin:0;}
+      .modal .close-row{margin-top:8px; text-align:right;}
+      .modal .close-row .btn{width:auto;}
+
+      /* ---------- sheet (base 1123x794 = A4 landscape @96dpi) ---------- */
+      .sheet-wrap{max-width:1123px; margin:0 auto; padding:0 8px 26px; overflow:hidden;}
+      .sheet{
+        width:1123px; height:794px; flex:none; background:#fff; color:#000;
+        display:flex; gap:11px; padding:40px; transform-origin:top left;
+        font-family:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif;
+        box-shadow:0 2px 14px rgba(51,48,42,.18);
+      }
+      .bands{display:flex; gap:11px; flex:none;}
+      .band{border-left:1.5px solid #000; border-top:1.5px solid #000; align-self:flex-start;}
+      .band .cell{width:27px; height:27px; border-right:1.5px solid #000; border-bottom:1.5px solid #000;}
+      .band{display:grid; grid-template-columns:repeat(2,27px);}
+      .qarea{flex:1; display:flex; flex-direction:column; min-width:0;}
+      .sheet-head{display:flex; justify-content:space-between; align-items:flex-end; height:36px; flex:none;}
+      .sheet-title{font-size:22px; font-weight:700;}
+      .sheet-name{font-size:17px; display:flex; align-items:flex-end; gap:6px;}
+      .name-line{display:inline-block; width:200px; border-bottom:1.5px solid #000; height:1px;}
+      .qrows{flex:1; display:flex; flex-direction:column;}
+      .qrow{flex:1; display:flex; flex-direction:row-reverse;}
+      .qrow.sep{border-top:2px dashed #000;}
+      .pair{flex:0 0 20%; display:flex; justify-content:flex-end; padding:8px 0;}
+      .answer{width:112px; border:1.5px solid #000; background:#fff;}
+      .strip{width:46px; border:1.5px solid #000; margin-left:8px; background:#fff;
+        display:flex; flex-direction:column; align-items:center; padding-top:7px; overflow:hidden;}
+      .qnum{width:26px; height:26px; flex:none; border:1.5px solid #000; border-radius:50%;
+        display:flex; align-items:center; justify-content:center; font-size:15px; line-height:1;}
+      .kana-vert{writing-mode:vertical-rl; -webkit-writing-mode:vertical-rl; margin-top:9px; white-space:nowrap;}
+      .kana-vert .u{border-right:2px solid #000; -webkit-box-decoration-break:clone; box-decoration-break:clone;}
+
+      /* ---------- print ---------- */
+      @page{size:A4 landscape; margin:0;}
+      @media print{
+        body{background:#fff;}
+        .app,.preview-title,.sheet-wrap{padding:0; margin:0;}
+        .app{display:none !important;}
+        .sheet-wrap{max-width:none; overflow:visible; height:auto !important;}
+        .sheet{transform:none !important; box-shadow:none; width:297mm; height:209.8mm;}
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <img src="icon.svg" alt="" />
+        <h1>漢字れんしゅうシート</h1>
+        <span class="chip" id="countChip">例文 0/10</span>
+        <span class="spacer"></span>
+        <span class="kuro" id="kuroStatus">辞書 読み込み中…</span>
+        <button class="btn" id="setsBtn" type="button">📚 セット</button>
+      </div>
+      <p class="hint">キーボードの🎤で音声入力できます</p>
+      <div class="input-row">
+        <input id="newInput" type="text" placeholder="例文を入力" autocomplete="off" />
+        <button class="btn primary" id="addBtn" type="button">追加</button>
+        <button class="btn soft" id="sampleBtn" type="button">例文</button>
+      </div>
+      <div class="msg" id="msg"></div>
+      <main id="cards"></main>
+      <div class="actions">
+        <button class="btn primary big" id="printBtn" type="button">🖨 印刷する</button>
+        <button class="btn danger" id="clearBtn" type="button">ぜんぶ消す</button>
+      </div>
+      <h2 class="preview-title">プレビュー</h2>
+    </div>
+
+    <div class="sheet-wrap" id="sheetWrap">
+      <div class="sheet" id="sheet">
+        <div class="bands" id="bands"></div>
+        <div class="qarea">
+          <div class="sheet-head">
+            <div class="sheet-title">漢字れんしゅうシート</div>
+            <div class="sheet-name">なまえ：<span class="name-line"></span></div>
+          </div>
+          <div class="qrows">
+            <div class="qrow" id="qrow0"></div>
+            <div class="qrow sep" id="qrow1"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-back" id="setsModal">
+      <div class="modal">
+        <h3>📚 セット</h3>
+        <button class="btn primary" id="saveSetBtn" type="button">今の例文をセットに保存</button>
+        <button class="btn" id="saveSetNewBtn" type="button">保存して新規開始</button>
+        <div id="setList"></div>
+        <div class="close-row"><button class="btn soft" id="setsCloseBtn" type="button">閉じる</button></div>
+      </div>
+    </div>
+
+    <script>
+    (function () {
+      'use strict';
+      var MAX = 10;
+      var SAMPLES = ['九州地方の天気','家族で山小屋に行く','この屋根は雨漏りする','屋上でお祭りをやっている','大根を育てる','軽い荷物を運ぶ','留守番中に大豆を煮る','神社でお守りを買う','劇の主役を決める','体育館で集会をする'];
+      var DRAFT_KEY = 'kanjisheet.items.v1';
+      var SETS_KEY = 'kanjisheet.sets.v1';
+
+      var items = [];
+      var sets = [];
+      var tokenizer = null;
+      var kuroState = 'loading'; // loading | ready | error
+
+      var $ = function (id) { return document.getElementById(id); };
+      var countChip = $('countChip'), kuroStatus = $('kuroStatus'), msgEl = $('msg');
+      var cardsEl = $('cards'), newInput = $('newInput');
+
+      function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+      function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+      function setMsg(t) { msgEl.textContent = t || ''; }
+      function isKanji(ch) { var c = ch.codePointAt(0); return (c >= 0x3400 && c <= 0x4DBF) || (c >= 0x4E00 && c <= 0x9FFF); }
+      function countKanji(text) { var n = 0; for (var ch of text) { if (isKanji(ch)) n++; } return n; }
+      function hasKanji(text) { for (var ch of text) { if (isKanji(ch)) return true; } return false; }
+      function kataToHira(s) {
+        var out = '';
+        for (var ch of s) { var c = ch.codePointAt(0); out += (c >= 0x30A1 && c <= 0x30F6) ? String.fromCodePoint(c - 0x60) : ch; }
+        return out;
+      }
+
+      /* ---- kuromoji conversion (same logic as Android KanaConverter) ---- */
+      function convertText(text) {
+        if (!tokenizer || !text || !text.trim()) return { kana: text, underline: [] };
+        try {
+          var tokens = tokenizer.tokenize(text);
+          var out = '', ranges = [];
+          for (var i = 0; i < tokens.length; i++) {
+            var token = tokens[i];
+            var reading = token.reading;
+            var start = out.length;
+            if (reading && reading !== '*') {
+              out += kataToHira(reading);
+              if (hasKanji(token.surface_form)) ranges.push([start, out.length - 1]);
+            } else {
+              out += token.surface_form;
+            }
+          }
+          return { kana: out, underline: ranges };
+        } catch (e) {
+          return { kana: text, underline: [] };
+        }
+      }
+
+      /* ---- persistence ---- */
+      function saveDraft() { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(items)); } catch (e) {} }
+      function saveSets() { try { localStorage.setItem(SETS_KEY, JSON.stringify(sets)); } catch (e) {} }
+      function loadAll() {
+        try {
+          var d = JSON.parse(localStorage.getItem(DRAFT_KEY) || '[]');
+          if (Array.isArray(d)) items = d.filter(function (x) { return x && typeof x.original === 'string'; }).map(function (x) {
+            return { id: x.id || uid(), original: x.original, kana: typeof x.kana === 'string' ? x.kana : x.original, underline: Array.isArray(x.underline) ? x.underline : [] };
+          });
+        } catch (e) { items = []; }
+        try {
+          var s = JSON.parse(localStorage.getItem(SETS_KEY) || '[]');
+          if (Array.isArray(s)) sets = s.filter(function (x) { return x && Array.isArray(x.items); });
+        } catch (e) { sets = []; }
+      }
+
+      /* ---- sheet ---- */
+      function buildBands() {
+        var bands = $('bands'), html = '';
+        for (var b = 0; b < 2; b++) { html += '<div class="band">'; for (var i = 0; i < 52; i++) html += '<div class="cell"></div>'; html += '</div>'; }
+        bands.innerHTML = html;
+      }
+      function segmentsHtml(kana, ranges) {
+        var chars = Array.from(kana);
+        var under = {};
+        (ranges || []).forEach(function (r) { for (var i = r[0]; i <= r[1] && i < chars.length; i++) under[i] = true; });
+        // underline ranges are recorded in UTF-16 indices; kana is all BMP so indices match code points.
+        var html = '', open = false;
+        chars.forEach(function (ch, i) {
+          var u = !!under[i];
+          if (u && !open) { html += '<span class="u">'; open = true; }
+          if (!u && open) { html += '</span>'; open = false; }
+          html += esc(ch);
+        });
+        if (open) html += '</span>';
+        return html;
+      }
+      function renderSheet() {
+        [0, 1].forEach(function (row) {
+          var rowEl = $('qrow' + row);
+          rowEl.innerHTML = '';
+          for (var k = 0; k < 5; k++) {
+            var idx = row * 5 + k;
+            if (idx >= items.length) break;
+            var item = items[idx];
+            var pair = document.createElement('div');
+            pair.className = 'pair';
+            pair.innerHTML = '<div class="answer"></div><div class="strip"><div class="qnum">' + (idx + 1) + '</div>' +
+              '<div class="kana-vert">' + segmentsHtml(item.kana || '', item.underline) + '</div></div>';
+            rowEl.appendChild(pair);
+            var strip = pair.querySelector('.strip');
+            var kanaEl = pair.querySelector('.kana-vert');
+            var len = Array.from(item.kana || '').length;
+            if (len > 0 && strip.clientHeight > 0) {
+              var avail = strip.clientHeight - 52; // number circle + paddings
+              var step = Math.min(22, avail / len);
+              var fs = step * 0.78;
+              kanaEl.style.fontSize = fs.toFixed(1) + 'px';
+              kanaEl.style.letterSpacing = Math.max(0, step - fs).toFixed(1) + 'px';
+            }
+          }
+        });
+      }
+      function scaleSheet() {
+        var wrap = $('sheetWrap'), sheet = $('sheet');
+        var avail = wrap.clientWidth - 16;
+        var scale = Math.min(1, avail / 1123);
+        sheet.style.transform = 'scale(' + scale + ')';
+        wrap.style.height = (794 * scale + 26) + 'px';
+      }
+
+      /* ---- cards ---- */
+      function warnVisible(item) { return Array.from(item.kana || '').length > 22; }
+      function renderCards() {
+        countChip.textContent = '例文 ' + items.length + '/' + MAX;
+        if (!items.length) { cardsEl.innerHTML = '<div class="empty">まだ例文がありません。</div>'; return; }
+        cardsEl.innerHTML = '';
+        items.forEach(function (item, index) {
+          var card = document.createElement('div');
+          card.className = 'card';
+          card.dataset.id = item.id;
+          card.innerHTML =
+            '<div class="card-head"><span class="num">' + (index + 1) + '</span>' +
+            '<span class="kchip">漢字 ' + countKanji(item.original) + ' 字</span>' +
+            '<span class="warn' + (warnVisible(item) ? ' show' : '') + '">⚠ 長い文です</span>' +
+            '<button class="del" type="button" title="削除">🗑</button></div>' +
+            '<label>例文（漢字まじり）<input class="orig" type="text" value="' + esc(item.original) + '" autocomplete="off" /></label>' +
+            '<label>ひらがな<input class="kana" type="text" value="' + esc(item.kana) + '" autocomplete="off" /></label>' +
+            '<button class="btn soft reconv" type="button">ひらがなに直す</button>';
+          cardsEl.appendChild(card);
+
+          var origInput = card.querySelector('.orig');
+          var kanaInput = card.querySelector('.kana');
+          var chip = card.querySelector('.kchip');
+          var warn = card.querySelector('.warn');
+          origInput.addEventListener('input', function () {
+            item.original = origInput.value;
+            chip.textContent = '漢字 ' + countKanji(item.original) + ' 字';
+            saveDraft();
+          });
+          kanaInput.addEventListener('input', function () {
+            item.kana = kanaInput.value;
+            item.underline = []; // manual edits invalidate underline positions (same as Android)
+            warn.classList.toggle('show', warnVisible(item));
+            saveDraft();
+            renderSheet();
+          });
+          card.querySelector('.reconv').addEventListener('click', function () { reconvert(item); });
+          card.querySelector('.del').addEventListener('click', function () {
+            items = items.filter(function (x) { return x.id !== item.id; });
+            saveDraft(); renderCards(); renderSheet();
+          });
+        });
+      }
+      function refreshCard(item) {
+        var card = cardsEl.querySelector('.card[data-id="' + item.id + '"]');
+        if (!card) return;
+        card.querySelector('.kana').value = item.kana;
+        card.querySelector('.warn').classList.toggle('show', warnVisible(item));
+      }
+
+      /* ---- conversion flow ---- */
+      function reconvert(item) {
+        if (kuroState !== 'ready') { setMsg(kuroState === 'error' ? '辞書の読み込みに失敗しました。' : '辞書の読み込み中です…'); return; }
+        var res = convertText(item.original);
+        item.kana = res.kana; item.underline = res.underline;
+        saveDraft(); refreshCard(item); renderSheet(); setMsg('');
+      }
+      function convertNew(item) {
+        if (kuroState !== 'ready') return; // converted when the dictionary finishes loading
+        var res = convertText(item.original);
+        item.kana = res.kana; item.underline = res.underline;
+        saveDraft(); refreshCard(item); renderSheet();
+      }
+      function backfill(item) {
+        // Sentences restored from storage: recompute ranges like the Android version does.
+        if (!item.underline || item.underline.length) return;
+        var res = convertText(item.original);
+        if (item.kana === item.original) { item.kana = res.kana; item.underline = res.underline; }
+        else if (res.kana === item.kana) { item.underline = res.underline; }
+        else return;
+        saveDraft(); refreshCard(item);
+      }
+      function initKuromoji() {
+        if (!window.kuromoji) { kuroState = 'error'; kuroStatus.textContent = '辞書の読み込みに失敗'; kuroStatus.className = 'kuro err'; return; }
+        window.kuromoji.builder({ dicPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/' }).build(function (err, tk) {
+          if (err || !tk) { kuroState = 'error'; kuroStatus.textContent = '辞書の読み込みに失敗'; kuroStatus.className = 'kuro err'; return; }
+          tokenizer = tk; kuroState = 'ready';
+          kuroStatus.textContent = '辞書 準備OK'; kuroStatus.className = 'kuro ok';
+          items.forEach(function (item) {
+            if (item.kana === item.original && hasKanji(item.original)) convertNew(item);
+            else backfill(item);
+          });
+          renderSheet();
+        });
+      }
+
+      /* ---- add / samples / clear ---- */
+      function addSentence(raw) {
+        var text = (raw || '').trim();
+        if (!text) return;
+        if (items.length >= MAX) { setMsg('例文は10文までです。'); return; }
+        var item = { id: uid(), original: text, kana: text, underline: [] };
+        items.push(item);
+        saveDraft(); renderCards(); renderSheet(); convertNew(item);
+        setMsg('');
+      }
+      $('addBtn').addEventListener('click', function () { addSentence(newInput.value); newInput.value = ''; newInput.focus(); });
+      newInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { addSentence(newInput.value); newInput.value = ''; } });
+
+      var sampleArmed = false, sampleTimer = null;
+      $('sampleBtn').addEventListener('click', function () {
+        if (items.length && !sampleArmed) {
+          sampleArmed = true;
+          this.textContent = '例文に置き換える？';
+          this.classList.add('armed');
+          sampleTimer = setTimeout(function () { sampleArmed = false; var b = $('sampleBtn'); b.textContent = '例文'; b.classList.remove('armed'); }, 4000);
+          return;
+        }
+        clearTimeout(sampleTimer); sampleArmed = false;
+        this.textContent = '例文'; this.classList.remove('armed');
+        items = SAMPLES.map(function (s) { return { id: uid(), original: s, kana: s, underline: [] }; });
+        saveDraft(); renderCards(); renderSheet();
+        items.forEach(convertNew);
+        setMsg('');
+      });
+
+      var clearArmed = false, clearTimer = null;
+      $('clearBtn').addEventListener('click', function () {
+        if (!items.length) return;
+        if (!clearArmed) {
+          clearArmed = true;
+          this.textContent = '本当に消す'; this.classList.add('armed');
+          clearTimer = setTimeout(function () { clearArmed = false; var b = $('clearBtn'); b.textContent = 'ぜんぶ消す'; b.classList.remove('armed'); }, 4000);
+          return;
+        }
+        clearTimeout(clearTimer); clearArmed = false;
+        this.textContent = 'ぜんぶ消す'; this.classList.remove('armed');
+        items = [];
+        saveDraft(); renderCards(); renderSheet(); setMsg('');
+      });
+
+      $('printBtn').addEventListener('click', function () { window.print(); });
+
+      /* ---- sets ---- */
+      var modal = $('setsModal'), armedSet = null;
+      function fmtName(d) {
+        function p(n) { return (n < 10 ? '0' : '') + n; }
+        return d.getFullYear() + '/' + p(d.getMonth() + 1) + '/' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+      }
+      function renderSetList() {
+        var list = $('setList');
+        if (!sets.length) { list.innerHTML = '<div class="empty">まだセットがありません。</div>'; return; }
+        list.innerHTML = '';
+        sets.forEach(function (set) {
+          var row = document.createElement('div');
+          row.className = 'set-row';
+          var loadArmed = armedSet === 'load:' + set.id;
+          var delArmed = armedSet === 'delete:' + set.id;
+          row.innerHTML = '<div class="nm">' + esc(set.name) + '（' + set.items.length + '文）</div>' +
+            '<div class="ops"><button class="btn soft op-load" type="button">' + (loadArmed ? '本当に開く（今の例文は消えます）' : '開く') + '</button>' +
+            '<button class="btn danger op-del" type="button">' + (delArmed ? '本当に削除' : '削除') + '</button></div>';
+          if (loadArmed) row.querySelector('.op-load').classList.add('armed');
+          if (delArmed) row.querySelector('.op-del').classList.add('armed');
+          row.querySelector('.op-load').addEventListener('click', function () {
+            if (armedSet !== 'load:' + set.id) { armedSet = 'load:' + set.id; renderSetList(); return; }
+            armedSet = null;
+            items = set.items.map(function (x) { return { id: uid(), original: x.original, kana: x.kana, underline: Array.isArray(x.underline) ? x.underline : [] }; });
+            saveDraft(); renderCards(); renderSheet();
+            modal.classList.remove('open');
+            setMsg('セット「' + set.name + '」を開きました。');
+          });
+          row.querySelector('.op-del').addEventListener('click', function () {
+            if (armedSet !== 'delete:' + set.id) { armedSet = 'delete:' + set.id; renderSetList(); return; }
+            armedSet = null;
+            sets = sets.filter(function (x) { return x.id !== set.id; });
+            saveSets(); renderSetList();
+          });
+          list.appendChild(row);
+        });
+      }
+      function saveCurrentAsSet(clearAfter) {
+        if (!items.length) { setMsg('保存する例文がありません。'); modal.classList.remove('open'); return; }
+        sets.unshift({ id: uid(), name: fmtName(new Date()), items: items.map(function (x) { return { id: x.id, original: x.original, kana: x.kana, underline: x.underline }; }) });
+        saveSets();
+        if (clearAfter) {
+          items = []; saveDraft(); renderCards(); renderSheet();
+          modal.classList.remove('open');
+          setMsg('セットに保存しました。新しいテスト分を入力してください。');
+        } else {
+          renderSetList();
+          setMsg('セットに保存しました。');
+        }
+      }
+      $('setsBtn').addEventListener('click', function () { armedSet = null; renderSetList(); modal.classList.add('open'); });
+      $('setsCloseBtn').addEventListener('click', function () { modal.classList.remove('open'); });
+      modal.addEventListener('click', function (e) { if (e.target === modal) modal.classList.remove('open'); });
+      $('saveSetBtn').addEventListener('click', function () { saveCurrentAsSet(false); });
+      $('saveSetNewBtn').addEventListener('click', function () { saveCurrentAsSet(true); });
+
+      /* ---- init ---- */
+      buildBands();
+      loadAll();
+      renderCards();
+      renderSheet();
+      scaleSheet();
+      window.addEventListener('resize', scaleSheet);
+      initKuromoji();
+    })();
+    </script>
+    <script>
+      if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(function () {}); }
+    </script>
+  </body>
+</html>
