@@ -38,6 +38,8 @@
       .kuro{font-size:12px; color:var(--dim);}
       .kuro.ok{color:var(--deep); font-weight:700;}
       .kuro.err{color:var(--red); font-weight:700;}
+      .kuro-retry{padding:5px 12px; font-size:13px;}
+      .kuro-retry[hidden]{display:none;}
       .spacer{flex:1;}
 
       .hint{margin:8px 2px 0; font-size:13px; color:var(--dim);}
@@ -142,6 +144,7 @@
         <span class="chip" id="countChip">例文 0/10</span>
         <span class="spacer"></span>
         <span class="kuro" id="kuroStatus">辞書 読み込み中…</span>
+        <button class="btn kuro-retry" id="kuroRetry" type="button" hidden>再読み込み</button>
         <button class="btn" id="setsBtn" type="button">📚 セット</button>
       </div>
       <p class="hint">キーボードの🎤で音声入力できます</p>
@@ -199,7 +202,7 @@
       var kuroState = 'loading'; // loading | ready | error
 
       var $ = function (id) { return document.getElementById(id); };
-      var countChip = $('countChip'), kuroStatus = $('kuroStatus'), msgEl = $('msg');
+      var countChip = $('countChip'), kuroStatus = $('kuroStatus'), kuroRetry = $('kuroRetry'), msgEl = $('msg');
       var cardsEl = $('cards'), newInput = $('newInput');
 
       function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -380,19 +383,101 @@
         else return;
         saveDraft(); refreshCard(item);
       }
-      function initKuromoji() {
-        if (!window.kuromoji) { kuroState = 'error'; kuroStatus.textContent = '辞書の読み込みに失敗'; kuroStatus.className = 'kuro err'; return; }
-        window.kuromoji.builder({ dicPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/' }).build(function (err, tk) {
-          if (err || !tk) { kuroState = 'error'; kuroStatus.textContent = '辞書の読み込みに失敗'; kuroStatus.className = 'kuro err'; return; }
-          tokenizer = tk; kuroState = 'ready';
-          kuroStatus.textContent = '辞書 準備OK'; kuroStatus.className = 'kuro ok';
-          items.forEach(function (item) {
-            if (item.kana === item.original && hasKanji(item.original)) convertNew(item);
-            else backfill(item);
+      /* ---- dictionary loading: CDN fallback chain with watchdog ----
+         kuromoji's loader has no timeout, so one stalled file would hang
+         the build callback forever (the iPad "stuck at 読み込み中" bug).
+         Each source gets 45s; if the callback never comes back, the chain
+         moves on to the next CDN. Chain ids invalidate stale callbacks so
+         retries/switchovers never run two live chains at once. */
+      var DIC_SOURCES = [
+        'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/',
+        'https://unpkg.com/kuromoji@0.1.2/dict/'
+      ];
+      var KURO_SCRIPTS = [
+        'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js',
+        'https://unpkg.com/kuromoji@0.1.2/build/kuromoji.js'
+      ];
+      var DIC_TIMEOUT_MS = 45000;
+      var SCRIPT_TIMEOUT_MS = 30000;
+      var kuroChainId = 0;
+
+      function setKuroLoading(attempt) {
+        kuroState = 'loading';
+        kuroStatus.className = 'kuro';
+        kuroStatus.textContent = '辞書 読み込み中…' + (attempt > 1 ? '(' + attempt + ')' : '') + '（初回は約17MB・1分ほどかかります）';
+        kuroRetry.hidden = true;
+      }
+      function setKuroError() {
+        kuroState = 'error';
+        kuroStatus.textContent = '辞書の読み込みに失敗';
+        kuroStatus.className = 'kuro err';
+        kuroRetry.hidden = false;
+      }
+      function onKuroReady(tk) {
+        tokenizer = tk; kuroState = 'ready';
+        kuroStatus.textContent = '辞書 準備OK'; kuroStatus.className = 'kuro ok';
+        kuroRetry.hidden = true;
+        items.forEach(function (item) {
+          if (item.kana === item.original && hasKanji(item.original)) convertNew(item);
+          else backfill(item);
+        });
+        renderSheet();
+      }
+      function loadKuroScript(chainId, idx, done) {
+        if (window.kuromoji) { done(true); return; }
+        if (idx >= KURO_SCRIPTS.length) { done(false); return; }
+        var settled = false;
+        var timer = setTimeout(function () { finish(false); }, SCRIPT_TIMEOUT_MS);
+        function finish(ok) {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          if (chainId !== kuroChainId) return; // superseded by a newer chain
+          if (ok && window.kuromoji) done(true);
+          else loadKuroScript(chainId, idx + 1, done);
+        }
+        var s = document.createElement('script');
+        s.src = KURO_SCRIPTS[idx];
+        s.onload = function () { finish(true); };
+        s.onerror = function () { finish(false); };
+        document.head.appendChild(s);
+      }
+      function tryDicSource(chainId, idx) {
+        if (chainId !== kuroChainId) return;
+        if (idx >= DIC_SOURCES.length) { setKuroError(); return; }
+        setKuroLoading(idx + 1);
+        var settled = false;
+        var watchdog = setTimeout(function () {
+          if (settled) return;
+          settled = true;
+          tryDicSource(chainId, idx + 1); // callback never arrived: fall through to the next CDN
+        }, DIC_TIMEOUT_MS);
+        try {
+          window.kuromoji.builder({ dicPath: DIC_SOURCES[idx] }).build(function (err, tk) {
+            if (settled || chainId !== kuroChainId) return;
+            settled = true;
+            clearTimeout(watchdog);
+            if (err || !tk) { tryDicSource(chainId, idx + 1); return; }
+            onKuroReady(tk);
           });
-          renderSheet();
+        } catch (e) {
+          if (!settled && chainId === kuroChainId) {
+            settled = true;
+            clearTimeout(watchdog);
+            tryDicSource(chainId, idx + 1);
+          }
+        }
+      }
+      function initKuromoji() {
+        var chainId = ++kuroChainId; // invalidate callbacks from any previous chain
+        setKuroLoading(1);
+        loadKuroScript(chainId, 0, function (ok) {
+          if (chainId !== kuroChainId) return;
+          if (!ok) { setKuroError(); return; }
+          tryDicSource(chainId, 0);
         });
       }
+      kuroRetry.addEventListener('click', function () { initKuromoji(); });
 
       /* ---- add / samples / clear ---- */
       function addSentence(raw) {
