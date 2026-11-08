@@ -14,6 +14,25 @@
     <link rel="icon" type="image/svg+xml" href="icon.svg" />
     <link rel="apple-touch-icon" href="icon.svg" />
     <title>漢字れんしゅうシート</title>
+    <script>
+      // kuromoji 0.1.2 bug workaround (upstream issue #37): its dictionary
+      // loader joins the dicPath with Node's path.join, which collapses
+      // "https://" into "https:/" and hands the broken URL to XHR.
+      // Chromium silently repairs it; Safari does not, so dictionary
+      // requests never complete on iPad/iPhone. Repair the URL at the
+      // XHR boundary before the request is made.
+      (function () {
+        var origOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function (method, url) {
+          if (typeof url === 'string') {
+            url = url.replace(/^(https?):\/(?!\/)/, '$1://');
+          }
+          var args = Array.prototype.slice.call(arguments);
+          args[1] = url;
+          return origOpen.apply(this, args);
+        };
+      })();
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
     <style>
       :root{

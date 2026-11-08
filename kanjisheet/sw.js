@@ -1,4 +1,4 @@
-const CACHE = 'kanjisheet-v2';
+const CACHE = 'kanjisheet-v3';
 const KURO_CACHE = 'kanjisheet-kuro-v1';
 
 // kuromoji's script + dictionary files are large (~17MB) and immutable per
