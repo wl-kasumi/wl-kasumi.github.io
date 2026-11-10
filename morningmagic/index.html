@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#FF9F43" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ミッション" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="icon.svg" />
+    <link rel="apple-touch-icon" href="icon.svg" />
+    <title>佳澄ちゃんのミッション</title>
+    <style>
+      :root{
+        --orange:#FF9F43; --orange-deep:#E67E22; --blue:#54A0FF; --blue-deep:#2E86DE;
+        --green:#2ED573; --red:#FF4757; --ink:#2F3542; --dim:#8395A7; --card:#FFFFFF;
+      }
+      *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+      html,body{margin:0; padding:0;}
+      body{
+        color:var(--ink);
+        font-family:"Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Yu Gothic UI","Yu Gothic",system-ui,sans-serif;
+        transition:background .3s;
+      }
+      body.morning{background:#FFF6EC;}
+      body.evening{background:#EEF4FF;}
+      .app{max-width:760px; margin:0 auto; padding:16px 16px 28px;}
+      h1{font-size:clamp(22px,4.5vw,30px); text-align:center; margin:6px 0 14px;}
+      .seg{display:flex; background:#fff; border-radius:14px; padding:5px; box-shadow:0 1px 4px rgba(0,0,0,.08); margin-bottom:14px;}
+      .seg button{flex:1; border:0; background:transparent; font:inherit; font-size:19px; font-weight:700; padding:11px; border-radius:10px; cursor:pointer; color:var(--dim);}
+      .seg button.on-m{background:var(--orange); color:#fff;}
+      .seg button.on-e{background:var(--blue); color:#fff;}
+      .status{min-height:118px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:6px 0 2px;}
+      .startbtn{width:100%; border:0; font:inherit; font-size:23px; font-weight:800; color:#fff; padding:20px; border-radius:16px; cursor:pointer; box-shadow:0 3px 8px rgba(0,0,0,.15);}
+      body.morning .startbtn{background:var(--orange);}
+      body.evening .startbtn{background:var(--blue);}
+      .startbtn:active{transform:scale(.98);}
+      .alldone{font-size:19px; font-weight:800; color:var(--green);}
+      .target-label{font-size:13px; color:var(--dim);}
+      .count{font-size:34px; font-weight:800; font-variant-numeric:tabular-nums; display:flex; align-items:center; gap:10px;}
+      .count.over{color:var(--red);}
+      .counts{display:flex; align-items:flex-end; padding:2px 4px 0;}
+      .counts .total{font-size:15px; font-weight:800;}
+      .counts .month{font-size:12px; color:var(--dim);}
+      .counts .sp{flex:1;}
+      .counts .bonus-left{font-size:14px; font-weight:800; color:var(--orange-deep);}
+      .strip{display:flex; gap:10px; overflow-x:auto; padding:10px 2px 14px; scrollbar-width:none;}
+      .strip::-webkit-scrollbar{display:none;}
+      .sticker{flex:0 0 auto; width:62px; height:88px; background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.12); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px;}
+      .sticker .emo{font-size:40px; line-height:1.15;}
+      .sticker .dt{font-size:10px; color:var(--dim);}
+      .sticker .sess{font-size:8px; color:var(--blue-deep); opacity:.75;}
+      .strip-empty{color:var(--dim); font-size:13px; padding:22px 4px;}
+      .listhead{font-size:13px; color:var(--dim); font-weight:700; margin:4px 4px 8px;}
+      .tasks{background:#fff; border-radius:16px; box-shadow:0 1px 4px rgba(0,0,0,.07); overflow:hidden;}
+      .task{display:flex; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid #F1F2F6;}
+      .task:last-child{border-bottom:0;}
+      .task .ttl{flex:1; font-size:20px;}
+      .task.done .ttl{text-decoration:line-through; color:var(--dim);}
+      .check{width:46px; height:46px; border-radius:50%; border:3px solid var(--blue); background:#fff; font-size:26px; line-height:1; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;}
+      .task.done .check{background:var(--green); border-color:var(--green);}
+      .empty{padding:26px 18px; text-align:center; color:var(--dim); font-size:15px; line-height:1.7;}
+      .bottom{display:flex; gap:16px; margin-top:18px;}
+      .bottom button{flex:1; border:0; font:inherit; font-size:16px; font-weight:700; padding:17px; border-radius:15px; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,.12);}
+      .btn-again{background:#fff; color:var(--ink);}
+      body.morning .btn-edit{background:var(--orange); color:#fff;}
+      body.evening .btn-edit{background:var(--blue); color:#fff;}
+      .remind-banner{display:none; margin-bottom:12px; background:#FFF3CD; border:2px solid var(--orange); color:#7A5200; font-weight:800; font-size:16px; border-radius:14px; padding:13px 16px; text-align:center; cursor:pointer;}
+      .remind-banner.show{display:block;}
+      /* ---------- overlays / sheets ---------- */
+      .overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; padding:18px;}
+      .overlay.show{display:flex;}
+      .sheet{background:#fff; border-radius:22px; max-width:520px; width:100%; max-height:92vh; overflow-y:auto; padding:26px 22px; text-align:center; box-shadow:0 12px 40px rgba(0,0,0,.3);}
+      .sheet h2{margin:0 0 8px; font-size:26px;}
+      .big-emo{font-size:110px; line-height:1.2;}
+      .bigbtn{border:0; font:inherit; font-size:19px; font-weight:800; padding:15px 34px; border-radius:30px; cursor:pointer; margin-top:14px;}
+      #bombOverlay{background:rgba(0,0,0,.88); z-index:60;}
+      #bombOverlay .sheet{background:transparent; box-shadow:none; color:#fff;}
+      .bomb-emo{font-size:140px; display:inline-block; animation:shake .12s infinite alternate;}
+      @keyframes shake{from{transform:translate(-7px,3px) rotate(-3deg);} to{transform:translate(7px,-3px) rotate(3deg);}}
+      .bomb-title{font-size:52px; font-weight:900; color:var(--orange); text-shadow:0 0 18px rgba(255,0,0,.7); margin:8px 0;}
+      .call-emo{font-size:96px; animation:ring 1s infinite;}
+      @keyframes ring{0%,100%{transform:rotate(0);} 20%{transform:rotate(8deg) scale(1.06);} 40%{transform:rotate(-8deg);} 60%{transform:rotate(6deg);}}
+      /* ---------- edit sheet ---------- */
+      #editOverlay{align-items:flex-start; background:rgba(0,0,0,.45);}
+      #editOverlay .sheet{text-align:left; margin-top:3vh;}
+      #editOverlay h2{text-align:center;}
+      .esec{margin:18px 0;}
+      .esec h3{font-size:13px; color:var(--dim); margin:0 0 8px;}
+      .erow{display:flex; align-items:center; gap:10px; margin:8px 0;}
+      .erow label{flex:1; font-size:16px; font-weight:700;}
+      input[type="time"], input[type="text"]{font:inherit; font-size:17px; padding:10px 12px; border:2px solid #DFE4EA; border-radius:10px; background:#fff;}
+      input[type="text"]{flex:1; min-width:0;}
+      .mini{border:0; font:inherit; font-weight:800; font-size:15px; padding:11px 16px; border-radius:10px; cursor:pointer; background:var(--orange); color:#fff;}
+      body.evening .mini{background:var(--blue);}
+      .etask{display:flex; align-items:center; gap:6px; padding:9px 4px; border-bottom:1px solid #F1F2F6;}
+      .etask .nm{flex:1; font-size:17px;}
+      .iconbtn{border:0; background:#F1F2F6; width:38px; height:38px; border-radius:10px; font-size:16px; cursor:pointer;}
+      .iconbtn.del{background:#FFE0E3;}
+      .switch{position:relative; width:54px; height:32px; flex:0 0 auto;}
+      .switch input{opacity:0; width:0; height:0;}
+      .track{position:absolute; inset:0; background:#CED6E0; border-radius:999px; transition:.2s; cursor:pointer;}
+      .track:before{content:""; position:absolute; width:26px; height:26px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s;}
+      .switch input:checked + .track{background:var(--green);}
+      .switch input:checked + .track:before{transform:translateX(22px);}
+      .note{font-size:12px; color:var(--dim); line-height:1.6;}
+      .cracks{position:absolute; inset:0; pointer-events:none; opacity:.55;}
+    </style>
+  </head>
+  <body class="morning">
+    <div class="app">
+      <h1>佳澄ちゃんのミッション</h1>
+
+      <div class="remind-banner" id="followBanner"></div>
+
+      <div class="seg" role="tablist">
+        <button id="tabMorning" type="button">☀️ あさ</button>
+        <button id="tabEvening" type="button">🌙 よる</button>
+      </div>
+
+      <div class="status" id="statusArea"></div>
+
+      <div class="counts">
+        <div>
+          <div class="total" id="totalCount"></div>
+          <div class="month" id="monthCount"></div>
+        </div>
+        <div class="sp"></div>
+        <div class="bonus-left" id="bonusLeft"></div>
+      </div>
+
+      <div class="strip" id="stickerStrip"></div>
+
+      <div class="listhead" id="listHead"></div>
+      <div class="tasks" id="taskList"></div>
+
+      <div class="bottom">
+        <button class="btn-again" id="againBtn" type="button">もういちど 🔄</button>
+        <button class="btn-edit" id="editBtn" type="button">なおす ⚙️</button>
+      </div>
+    </div>
+
+    <!-- reward -->
+    <div class="overlay" id="rewardOverlay">
+      <div class="sheet">
+        <h2>🎉 かすみちゃん 🎉</h2>
+        <div style="font-size:20px; font-weight:800; color:var(--green);">ぜんぶ できたね！</div>
+        <div class="big-emo" id="rewardSticker"></div>
+        <button class="bigbtn" id="rewardClose" type="button" style="background:#FFD32A;">とじる</button>
+      </div>
+    </div>
+
+    <!-- bonus -->
+    <div class="overlay" id="bonusOverlay">
+      <div class="sheet">
+        <h2 style="color:var(--orange-deep);">🎊 スペシャルボーナス 🎊</h2>
+        <div style="font-size:22px; font-weight:800;">テレビ 10分 ついか！</div>
+        <div class="big-emo">📺</div>
+        <button class="bigbtn" id="bonusClose" type="button" style="background:var(--orange); color:#fff;">やったー！</button>
+      </div>
+    </div>
+
+    <!-- reminder call -->
+    <div class="overlay" id="callOverlay" style="background:rgba(255,246,230,.97);">
+      <div class="sheet" style="background:transparent; box-shadow:none;">
+        <div class="call-emo" id="callEmoji">☀️</div>
+        <h2 id="callTitle" style="font-size:30px;"></h2>
+        <div id="callBody" style="font-size:17px; font-weight:700;"></div>
+        <button class="bigbtn" id="callStart" type="button" style="background:var(--orange); color:#fff;">ミッション開始！🚀</button>
+      </div>
+    </div>
+
+    <!-- bomb -->
+    <div class="overlay" id="bombOverlay">
+      <svg class="cracks" id="crackSvg" preserveAspectRatio="none"></svg>
+      <div class="sheet">
+        <div class="bomb-emo">💣</div>
+        <div class="bomb-title">ぼふん！！！</div>
+        <div style="font-size:20px; font-weight:800; line-height:1.6;">じかんぎれだ〜！<br />つぎは かすみちゃんの かちだよ！</div>
+        <button class="bigbtn" id="bombRetry" type="button" style="background:#fff; color:#000;">もういちど ちょうせん！</button>
+      </div>
+    </div>
+
+    <!-- edit -->
+    <div class="overlay" id="editOverlay">
+      <div class="sheet">
+        <h2 id="editTitle"></h2>
+
+        <div class="esec">
+          <h3>じかんをきめる</h3>
+          <div class="erow">
+            <label>目標時刻</label>
+            <input type="time" id="editTarget" />
+          </div>
+        </div>
+
+        <div class="esec">
+          <h3>リマインド（アプリをひらいているとき）</h3>
+          <div class="erow">
+            <label>じどうで おしらせる</label>
+            <span class="switch"><input type="checkbox" id="editRemindOn" /><span class="track"></span></span>
+          </div>
+          <div class="erow">
+            <label>おしらせ時刻</label>
+            <input type="time" id="editRemindTime" />
+          </div>
+          <div class="note">※ Webアプリは、ひらいていないときには通知できません。毎日の呼びかけには iPad の「ショートカット」のオートメーション（時刻 → このアプリを開く／通知を表示）がおすすめです。あと10分のおしらせは目標時刻から自動で決まります。</div>
+        </div>
+
+        <div class="esec">
+          <h3>ミッションを追加</h3>
+          <div class="erow">
+            <input type="text" id="newTaskName" placeholder="名前" />
+            <button class="mini" id="addTaskBtn" type="button">追加</button>
+          </div>
+        </div>
+
+        <div class="esec">
+          <h3>ならびかえ・さくじょ</h3>
+          <div id="editTaskList"></div>
+        </div>
+
+        <div style="text-align:center;">
+          <button class="bigbtn" id="editDone" type="button" style="background:var(--green); color:#fff;">おわり</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      'use strict';
+      var STICKERS = ["🐱","🔔","🚪","🚁","🍞","⏳","🔦","🎈","🍘","🥯","🔭","🌀","🎡","🛹","🧤","🏹","🧬","🦕","🦎","🐉","🦋","🌳","🌊","🌿","🌌","🌕","💎","🔋","🏯","⚔️","🛡️","🎑","🎍","🍙","🐎","🎏","🚩","⛩️","🗻","🍵","👺","🎎","🐶","🐕","🐩","🦮","🐕‍🦺","🐾","🦴","🎾","🏠","🛁","🥨","🦊","🐻","🐼","✨","🌟","🔥","🌈","🍀","🏆","🥇","🎗️","🎁","🎊","🎉","❤️","🚀","🍦","🍩","🍪","🍰","🍎","🍓","🍉","🍭","🍹","🥞","✏️","🎒","📚","📏","🎨","🎹","⚽️","🏀","💮","💯"];
+      var KEY = 'morningmagic_v1';
+
+      function todayStr(d) {
+        d = d || new Date();
+        var m = String(d.getMonth() + 1).padStart(2, '0');
+        var day = String(d.getDate()).padStart(2, '0');
+        return d.getFullYear() + '-' + m + '-' + day;
+      }
+      function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+      function defaultState() {
+        return {
+          morningTasks: [], eveningTasks: [],
+          records: [], // {date:'YYYY-MM-DD', sticker, isMorning}
+          morningTarget: '07:20', eveningTarget: '20:30',
+          morningRemind: { enabled: true, time: '06:50' },
+          eveningRemind: { enabled: true, time: '20:00' },
+          lastDay: todayStr(),
+          alerted: {} // 'YYYY-MM-DD|morning|start' -> true
+        };
+      }
+      var state;
+      try {
+        var raw = localStorage.getItem(KEY);
+        state = raw ? Object.assign(defaultState(), JSON.parse(raw)) : defaultState();
+      } catch (e) { state = defaultState(); }
+
+      // Daily reset: a new day starts with all missions unchecked (improvement over the Swift version, which kept yesterday's checks until a manual reset).
+      if (state.lastDay !== todayStr()) {
+        state.morningTasks.forEach(function (t) { t.isCompleted = false; });
+        state.eveningTasks.forEach(function (t) { t.isCompleted = false; });
+        state.lastDay = todayStr();
+      }
+      function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+      var tab = 0; // 0 morning, 1 evening
+      var timerRunning = false;
+      var overTime = false;
+      var latestSticker = '✨';
+      var pendingBonus = false;
+
+      function tasks() { return tab === 0 ? state.morningTasks : state.eveningTasks; }
+      function targetTime() { return tab === 0 ? state.morningTarget : state.eveningTarget; }
+      function allDone() { var t = tasks(); return t.length > 0 && t.every(function (x) { return x.isCompleted; }); }
+      function gotStickerToday(isMorning) {
+        var td = todayStr();
+        return state.records.some(function (r) { return r.date === td && r.isMorning === isMorning; });
+      }
+
+      /* ---------- sound (WebAudio, no assets) ---------- */
+      var AC = null;
+      function ac() {
+        if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+        if (AC && AC.state === 'suspended') AC.resume();
+        return AC;
+      }
+      function tone(freq, t0, dur, type, gain) {
+        var ctx = ac(); if (!ctx) return;
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = type || 'sine'; o.frequency.value = freq;
+        var s = ctx.currentTime + t0;
+        g.gain.setValueAtTime(0.0001, s);
+        g.gain.exponentialRampToValueAtTime(gain || 0.22, s + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, s + dur);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(s); o.stop(s + dur + 0.05);
+      }
+      function sndStart() { tone(523, 0, .15); tone(659, .12, .15); tone(784, .24, .25); }
+      function sndCheck() { tone(880, 0, .12, 'triangle', .25); tone(1318, .07, .18, 'triangle', .2); }
+      function sndReward() { [523, 659, 784, 1046].forEach(function (f, i) { tone(f, i * .13, .3, 'triangle', .25); }); }
+      function sndBonus() { [784, 988, 1175, 1568].forEach(function (f, i) { tone(f, i * .12, .32, 'triangle', .25); }); }
+      function sndBomb() {
+        var ctx = ac(); if (!ctx) return;
+        tone(90, 0, .7, 'sawtooth', .4); tone(55, 0, .9, 'square', .3);
+        var len = ctx.sampleRate * 0.5, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+        for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+        var src = ctx.createBufferSource(); src.buffer = buf;
+        var g = ctx.createGain(); g.gain.value = .5;
+        src.connect(g); g.connect(ctx.destination); src.start();
+        if (navigator.vibrate) navigator.vibrate([120, 60, 200]);
+      }
+      function sndCall() { tone(1046, 0, .2, 'triangle', .25); tone(1046, .3, .2, 'triangle', .25); tone(1318, .6, .35, 'triangle', .25); }
+
+      /* ---------- rendering ---------- */
+      var $ = function (id) { return document.getElementById(id); };
+
+      function render() {
+        document.body.className = tab === 0 ? 'morning' : 'evening';
+        $('tabMorning').className = tab === 0 ? 'on-m' : '';
+        $('tabEvening').className = tab === 1 ? 'on-e' : '';
+
+        // status
+        var sa = $('statusArea');
+        if (allDone()) {
+          sa.innerHTML = '<div class="alldone">✨ ぜんぶ完了！おつかれさま ✨</div>';
+        } else if (!timerRunning && !overTime) {
+          sa.innerHTML = '';
+          var b = document.createElement('button');
+          b.className = 'startbtn'; b.type = 'button'; b.textContent = 'ミッション開始！🚀';
+          b.addEventListener('click', function () { startTimer(); });
+          sa.appendChild(b);
+        } else {
+          sa.innerHTML = '<div class="target-label">' + targetTime() + ' までに おわらせよう！</div>' +
+            '<div class="count' + (overTime ? ' over' : '') + '">⏱ <span id="countNum">--:--</span></div>' +
+            '<div class="target-label">のこり時間</div>';
+          tick();
+        }
+
+        // counts
+        $('totalCount').textContent = 'ぜんぶで: ' + state.records.length + '枚';
+        var now = new Date();
+        var mc = state.records.filter(function (r) {
+          var p = r.date.split('-');
+          return Number(p[0]) === now.getFullYear() && Number(p[1]) === now.getMonth() + 1;
+        }).length;
+        $('monthCount').textContent = 'こんげつ: ' + mc + '枚';
+        $('bonusLeft').textContent = state.records.length === 0 || state.records.length % 5 !== 0
+          ? 'あと ' + (5 - (state.records.length % 5)) + '枚でボーナス！' : '';
+
+        // sticker strip
+        var strip = $('stickerStrip');
+        strip.innerHTML = '';
+        if (state.records.length === 0) {
+          strip.innerHTML = '<div class="strip-empty">シールはまだないよ。ミッションをぜんぶ終わらせよう！</div>';
+        }
+        state.records.slice().reverse().forEach(function (r) {
+          var p = r.date.split('-');
+          var div = document.createElement('div');
+          div.className = 'sticker';
+          div.innerHTML = '<div class="emo"></div><div class="dt">' + Number(p[1]) + '/' + Number(p[2]) + '</div><div class="sess">' + (r.isMorning ? 'あさ' : 'よる') + '</div>';
+          div.querySelector('.emo').textContent = r.sticker;
+          strip.appendChild(div);
+        });
+
+        // tasks
+        $('listHead').textContent = tab === 0 ? 'あさのミッション' : 'よるのミッション';
+        var list = $('taskList');
+        list.innerHTML = '';
+        if (tasks().length === 0) {
+          list.innerHTML = '<div class="empty">ミッションがまだありません。<br />「なおす ⚙️」から追加してね。</div>';
+        }
+        tasks().forEach(function (t) {
+          var row = document.createElement('div');
+          row.className = 'task' + (t.isCompleted ? ' done' : '');
+          var ttl = document.createElement('div');
+          ttl.className = 'ttl'; ttl.textContent = t.title;
+          var chk = document.createElement('button');
+          chk.className = 'check'; chk.type = 'button';
+          chk.textContent = t.isCompleted ? '✓' : '';
+          chk.setAttribute('aria-label', t.title);
+          chk.addEventListener('click', function () {
+            t.isCompleted = !t.isCompleted;
+            if (t.isCompleted) { sndCheck(); checkProgress(); }
+            save(); render();
+          });
+          row.appendChild(ttl); row.appendChild(chk);
+          list.appendChild(row);
+        });
+      }
+
+      function targetDateToday() {
+        var p = targetTime().split(':');
+        var d = new Date();
+        d.setHours(Number(p[0]), Number(p[1]), 0, 0);
+        return d;
+      }
+      function tick() {
+        var el = $('countNum');
+        if (!timerRunning || !el) return;
+        var diff = Math.floor((targetDateToday() - new Date()) / 1000);
+        if (diff > 0) {
+          el.textContent = String(Math.floor(diff / 60)).padStart(2, '0') + ':' + String(diff % 60).padStart(2, '0');
+        } else {
+          el.textContent = '00:00';
+          if (!overTime && !allDone()) {
+            overTime = true; timerRunning = false;
+            triggerBomb();
+          }
+          render();
+        }
+      }
+      setInterval(tick, 500);
+      // reminder checks run on the same cadence family
+      setInterval(checkReminders, 5000);
+
+      function startTimer() {
+        timerRunning = true; overTime = false;
+        sndStart(); render();
+      }
+      function triggerBomb() {
+        sndBomb();
+        var svg = $('crackSvg');
+        var lines = '';
+        var cx = window.innerWidth / 2, cy = window.innerHeight / 2;
+        for (var i = 0; i < 12; i++) {
+          lines += '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + (Math.random() * 600 - 300)) + '" y2="' + (cy + (Math.random() * 800 - 400)) + '" stroke="#9E9E9E" stroke-width="2"/>';
+        }
+        svg.setAttribute('viewBox', '0 0 ' + window.innerWidth + ' ' + window.innerHeight);
+        svg.innerHTML = lines;
+        $('bombOverlay').classList.add('show');
+      }
+
+      function checkProgress() {
+        if (allDone() && !overTime) {
+          timerRunning = false;
+          var isMorning = tab === 0;
+          if (!gotStickerToday(isMorning)) {
+            latestSticker = STICKERS[Math.floor(Math.random() * STICKERS.length)];
+            state.records.push({ date: todayStr(), sticker: latestSticker, isMorning: isMorning });
+            save();
+            sndReward();
+            pendingBonus = state.records.length % 5 === 0;
+          } else {
+            latestSticker = state.records.filter(function (r) { return r.date === todayStr() && r.isMorning === isMorning; })[0].sticker;
+            sndReward();
+            pendingBonus = false;
+          }
+          // completing cancels today's remaining in-app reminders for this session
+          state.alerted[todayStr() + '|' + (isMorning ? 'morning' : 'evening') + '|follow'] = true;
+          save();
+          $('rewardSticker').textContent = latestSticker;
+          $('rewardOverlay').classList.add('show');
+        }
+      }
+
+      /* ---------- reminders (in-app, while open) ---------- */
+      function hmToDate(hm) {
+        var p = hm.split(':'); var d = new Date();
+        d.setHours(Number(p[0]), Number(p[1]), 0, 0);
+        return d;
+      }
+      function checkReminders() {
+        var now = new Date();
+        // day rollover while open
+        if (state.lastDay !== todayStr()) {
+          state.morningTasks.forEach(function (t) { t.isCompleted = false; });
+          state.eveningTasks.forEach(function (t) { t.isCompleted = false; });
+          state.lastDay = todayStr(); save(); render();
+        }
+        [['morning', state.morningRemind, state.morningTarget, true],
+         ['evening', state.eveningRemind, state.eveningTarget, false]].forEach(function (cfg) {
+          var name = cfg[0], remind = cfg[1], tgt = cfg[2], isMorning = cfg[3];
+          if (!remind.enabled) return;
+          var doneToday = state.records.some(function (r) { return r.date === todayStr() && r.isMorning === isMorning; });
+          if (doneToday) return;
+          var startKey = todayStr() + '|' + name + '|start';
+          if (!state.alerted[startKey] && now >= hmToDate(remind.time) && now < hmToDate(tgt)) {
+            state.alerted[startKey] = true; save();
+            showCall(isMorning);
+            return;
+          }
+          var followKey = todayStr() + '|' + name + '|follow';
+          var followAt = new Date(hmToDate(tgt).getTime() - 10 * 60000);
+          if (!state.alerted[followKey] && now >= followAt && now < hmToDate(tgt)) {
+            state.alerted[followKey] = true; save();
+            var banner = $('followBanner');
+            banner.textContent = '⏰ ' + (isMorning ? 'あさ' : 'よる') + 'のミッション、あと10分だよ！がんばれ！';
+            banner.classList.add('show');
+            sndCall();
+            banner.onclick = function () { banner.classList.remove('show'); switchTab(isMorning ? 0 : 1); };
+            setTimeout(function () { banner.classList.remove('show'); }, 60000);
+          }
+        });
+      }
+      function showCall(isMorning) {
+        tab = isMorning ? 0 : 1;
+        $('callEmoji').textContent = isMorning ? '☀️' : '🌙';
+        $('callTitle').textContent = (isMorning ? 'あさ' : 'よる') + 'のミッションの時間だよ！';
+        $('callBody').textContent = '目標は ' + (isMorning ? state.morningTarget : state.eveningTarget) + ' まで。がんばろう！';
+        $('callStart').style.background = isMorning ? 'var(--orange)' : 'var(--blue)';
+        $('callOverlay').classList.add('show');
+        sndCall();
+        if (navigator.vibrate) navigator.vibrate(200);
+        render();
+      }
+
+      /* ---------- wiring ---------- */
+      function switchTab(n) {
+        tab = n; timerRunning = false; overTime = false;
+        render();
+      }
+      $('tabMorning').addEventListener('click', function () { switchTab(0); });
+      $('tabEvening').addEventListener('click', function () { switchTab(1); });
+
+      $('againBtn').addEventListener('click', function () {
+        tasks().forEach(function (t) { t.isCompleted = false; });
+        timerRunning = false; overTime = false;
+        // resetting re-arms today's follow-up reminder for this session
+        delete state.alerted[todayStr() + '|' + (tab === 0 ? 'morning' : 'evening') + '|follow'];
+        save(); render();
+      });
+
+      $('rewardClose').addEventListener('click', function () {
+        $('rewardOverlay').classList.remove('show');
+        if (pendingBonus) {
+          pendingBonus = false;
+          setTimeout(function () { sndBonus(); $('bonusOverlay').classList.add('show'); }, 400);
+        }
+        render();
+      });
+      $('bonusClose').addEventListener('click', function () { $('bonusOverlay').classList.remove('show'); });
+      $('bombRetry').addEventListener('click', function () { $('bombOverlay').classList.remove('show'); render(); });
+      $('callStart').addEventListener('click', function () { $('callOverlay').classList.remove('show'); startTimer(); });
+
+      /* ---------- edit ---------- */
+      function openEdit() {
+        $('editTitle').textContent = (tab === 0 ? 'あさ' : 'よる') + 'をなおす';
+        $('editTarget').value = targetTime();
+        var r = tab === 0 ? state.morningRemind : state.eveningRemind;
+        $('editRemindOn').checked = r.enabled;
+        $('editRemindTime').value = r.time;
+        $('newTaskName').value = '';
+        renderEditTasks();
+        $('editOverlay').classList.add('show');
+      }
+      function applyEditTimes() {
+        var v = $('editTarget').value;
+        if (v) { if (tab === 0) state.morningTarget = v; else state.eveningTarget = v; }
+        var r = tab === 0 ? state.morningRemind : state.eveningRemind;
+        r.enabled = $('editRemindOn').checked;
+        if ($('editRemindTime').value) r.time = $('editRemindTime').value;
+        // a changed start time re-arms today's start alert if it is still ahead
+        save();
+      }
+      function renderEditTasks() {
+        var box = $('editTaskList');
+        box.innerHTML = '';
+        tasks().forEach(function (t, i) {
+          var row = document.createElement('div');
+          row.className = 'etask';
+          var nm = document.createElement('div');
+          nm.className = 'nm'; nm.textContent = t.title;
+          row.appendChild(nm);
+          [['↑', function () { if (i > 0) { var a = tasks(); var tmp = a[i - 1]; a[i - 1] = a[i]; a[i] = tmp; } }],
+           ['↓', function () { var a = tasks(); if (i < a.length - 1) { var tmp = a[i + 1]; a[i + 1] = a[i]; a[i] = tmp; } }]].forEach(function (cfg) {
+            var btn = document.createElement('button');
+            btn.className = 'iconbtn'; btn.type = 'button'; btn.textContent = cfg[0];
+            btn.addEventListener('click', function () { cfg[1](); save(); renderEditTasks(); render(); });
+            row.appendChild(btn);
+          });
+          var del = document.createElement('button');
+          del.className = 'iconbtn del'; del.type = 'button'; del.textContent = '✕';
+          del.addEventListener('click', function () {
+            tasks().splice(i, 1); save(); renderEditTasks(); render();
+          });
+          row.appendChild(del);
+          box.appendChild(row);
+        });
+      }
+      $('editBtn').addEventListener('click', openEdit);
+      $('editTarget').addEventListener('change', applyEditTimes);
+      $('editRemindOn').addEventListener('change', applyEditTimes);
+      $('editRemindTime').addEventListener('change', applyEditTimes);
+      $('addTaskBtn').addEventListener('click', function () {
+        var name = $('newTaskName').value.trim();
+        if (!name) return;
+        tasks().push({ id: uid(), title: name, isCompleted: false });
+        $('newTaskName').value = '';
+        save(); renderEditTasks(); render();
+      });
+      $('newTaskName').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('addTaskBtn').click(); });
+      $('editDone').addEventListener('click', function () {
+        applyEditTimes();
+        $('editOverlay').classList.remove('show');
+        render();
+      });
+
+      save();
+      render();
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(function () {});
+      }
+    </script>
+  </body>
+</html>
