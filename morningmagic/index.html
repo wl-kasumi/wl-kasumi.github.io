@@ -70,6 +70,13 @@
       body.evening .btn-edit{background:var(--blue); color:#fff;}
       .remind-banner{display:none; margin-bottom:12px; background:#FFF3CD; border:2px solid var(--orange); color:#7A5200; font-weight:800; font-size:16px; border-radius:14px; padding:13px 16px; text-align:center; cursor:pointer;}
       .remind-banner.show{display:block;}
+      .tv-banner{display:none; margin-bottom:12px; background:#E3F6E9; border:2px solid var(--green); color:#14532D; font-weight:800; font-size:17px; border-radius:14px; padding:13px 16px; text-align:center;}
+      .tv-banner.show{display:block;}
+      .reward-block{margin-top:14px; border-radius:16px; padding:14px 12px; font-size:21px; font-weight:800; line-height:1.5;}
+      .reward-tv{background:#E3F6E9; border:2px solid var(--green); color:#14532D;}
+      .reward-yt{background:#FDECEC; border:2px solid var(--red); color:#7F1D1D;}
+      .yt-count{font-size:44px; font-weight:900; font-variant-numeric:tabular-nums; margin:6px 0 2px;}
+      .yt-done{font-size:20px; font-weight:900; color:var(--red); margin-top:8px;}
       /* ---------- overlays / sheets ---------- */
       .overlay{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50; padding:18px;}
       .overlay.show{display:flex;}
@@ -116,6 +123,8 @@
 
       <div class="remind-banner" id="followBanner"></div>
 
+      <div class="tv-banner" id="tvBanner">📺 きのう がんばったね！きょう 6:45まで テレビ OK！</div>
+
       <div class="seg" role="tablist">
         <button id="tabMorning" type="button">☀️ あさ</button>
         <button id="tabEvening" type="button">🌙 よる</button>
@@ -149,17 +158,14 @@
         <h2>🎉 かすみちゃん 🎉</h2>
         <div style="font-size:20px; font-weight:800; color:var(--green);">ぜんぶ できたね！</div>
         <div class="big-emo" id="rewardSticker"></div>
+        <div class="reward-block reward-tv" id="tvReward" style="display:none;">📺 あしたの あさ<br />6:45まで テレビ OK！</div>
+        <div class="reward-block reward-yt" id="ytReward" style="display:none;">
+          <div>🎊 YouTube 15分 ボーナス！ 🎊</div>
+          <div class="yt-count" id="ytCount">15:00</div>
+          <button class="bigbtn" id="ytStart" type="button" style="background:var(--red); color:#fff; margin-top:6px;">▶️ スタート</button>
+          <div class="yt-done" id="ytDone" style="display:none;">⏰ おわりだよ！また がんばろうね</div>
+        </div>
         <button class="bigbtn" id="rewardClose" type="button" style="background:#FFD32A;">とじる</button>
-      </div>
-    </div>
-
-    <!-- bonus -->
-    <div class="overlay" id="bonusOverlay">
-      <div class="sheet">
-        <h2 style="color:var(--orange-deep);">🎊 スペシャルボーナス 🎊</h2>
-        <div style="font-size:22px; font-weight:800;">テレビ 10分 ついか！</div>
-        <div class="big-emo">📺</div>
-        <button class="bigbtn" id="bonusClose" type="button" style="background:var(--orange); color:#fff;">やったー！</button>
       </div>
     </div>
 
@@ -271,7 +277,8 @@
       var timerRunning = false;
       var overTime = false;
       var latestSticker = '✨';
-      var pendingBonus = false;
+      var pendingTv = false;
+      var pendingYt = false;
 
       function tasks() { return tab === 0 ? state.morningTasks : state.eveningTasks; }
       function targetTime() { return tab === 0 ? state.morningTarget : state.eveningTarget; }
@@ -348,8 +355,16 @@
           return Number(p[0]) === now.getFullYear() && Number(p[1]) === now.getMonth() + 1;
         }).length;
         $('monthCount').textContent = 'こんげつ: ' + mc + '枚';
-        $('bonusLeft').textContent = state.records.length === 0 || state.records.length % 5 !== 0
-          ? 'あと ' + (5 - (state.records.length % 5)) + '枚でボーナス！' : '';
+        $('bonusLeft').textContent = 'あと ' + (10 - (state.records.length % 10)) + '枚で YouTubeボーナス！';
+
+        // yesterday both sessions done -> TV is OK this morning until 6:45
+        var yd = new Date(); yd.setDate(yd.getDate() - 1);
+        var yStr = todayStr(yd);
+        var yPair = state.records.some(function (r) { return r.date === yStr && r.isMorning; }) &&
+                    state.records.some(function (r) { return r.date === yStr && !r.isMorning; });
+        var nowT = new Date();
+        var before645 = nowT.getHours() * 60 + nowT.getMinutes() < 6 * 60 + 45;
+        $('tvBanner').classList.toggle('show', yPair && before645);
 
         // sticker strip
         var strip = $('stickerStrip');
@@ -443,16 +458,24 @@
             state.records.push({ date: todayStr(), sticker: latestSticker, isMorning: isMorning });
             save();
             sndReward();
-            pendingBonus = state.records.length % 5 === 0;
+            // household rule: both sessions of the day done -> TV OK next morning until 6:45
+            pendingTv = state.records.some(function (r) { return r.date === todayStr() && r.isMorning; }) &&
+                        state.records.some(function (r) { return r.date === todayStr() && !r.isMorning; });
+            // every 10 stickers -> YouTube 15 minutes
+            pendingYt = state.records.length % 10 === 0;
           } else {
             latestSticker = state.records.filter(function (r) { return r.date === todayStr() && r.isMorning === isMorning; })[0].sticker;
             sndReward();
-            pendingBonus = false;
+            pendingTv = false;
+            pendingYt = false;
           }
           // completing cancels today's remaining in-app reminders for this session
           state.alerted[todayStr() + '|' + (isMorning ? 'morning' : 'evening') + '|follow'] = true;
           save();
           $('rewardSticker').textContent = latestSticker;
+          $('tvReward').style.display = pendingTv ? 'block' : 'none';
+          $('ytReward').style.display = pendingYt ? 'block' : 'none';
+          if (pendingYt) { resetYtTimer(); sndBonus(); }
           $('rewardOverlay').classList.add('show');
         }
       }
@@ -524,15 +547,43 @@
         save(); render();
       });
 
+      /* ---------- YouTube bonus timer (15 min) ---------- */
+      var ytLeft = 15 * 60;
+      var ytTimerId = null;
+      function fmtYt() {
+        $('ytCount').textContent = String(Math.floor(ytLeft / 60)).padStart(2, '0') + ':' + String(ytLeft % 60).padStart(2, '0');
+      }
+      function resetYtTimer() {
+        if (ytTimerId) { clearInterval(ytTimerId); ytTimerId = null; }
+        ytLeft = 15 * 60; fmtYt();
+        $('ytStart').style.display = '';
+        $('ytDone').style.display = 'none';
+      }
+      function stopYtTimer() {
+        if (ytTimerId) { clearInterval(ytTimerId); ytTimerId = null; }
+      }
+      $('ytStart').addEventListener('click', function () {
+        if (ytTimerId) return;
+        $('ytStart').style.display = 'none';
+        sndStart();
+        ytTimerId = setInterval(function () {
+          ytLeft--;
+          if (ytLeft <= 0) {
+            ytLeft = 0; fmtYt();
+            stopYtTimer();
+            $('ytDone').style.display = 'block';
+            sndBonus();
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+          } else { fmtYt(); }
+        }, 1000);
+      });
+
       $('rewardClose').addEventListener('click', function () {
+        stopYtTimer();
+        pendingTv = false; pendingYt = false;
         $('rewardOverlay').classList.remove('show');
-        if (pendingBonus) {
-          pendingBonus = false;
-          setTimeout(function () { sndBonus(); $('bonusOverlay').classList.add('show'); }, 400);
-        }
         render();
       });
-      $('bonusClose').addEventListener('click', function () { $('bonusOverlay').classList.remove('show'); });
       $('bombRetry').addEventListener('click', function () { $('bombOverlay').classList.remove('show'); render(); });
       $('callStart').addEventListener('click', function () { $('callOverlay').classList.remove('show'); startTimer(); });
 

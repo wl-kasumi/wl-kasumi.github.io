@@ -1,4 +1,4 @@
-const CACHE = 'morningmagic-v1';
+const CACHE = 'morningmagic-v2';
 
 self.addEventListener('install', (e) => { self.skipWaiting(); });
 self.addEventListener('activate', (e) => {
